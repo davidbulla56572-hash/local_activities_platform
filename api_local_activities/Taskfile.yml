@@ -1,0 +1,19 @@
+version: '3'
+
+tasks:
+  dev:
+    desc: "Ejecuta el servidor FastAPI con recarga automática usando uv"
+    cmds:
+      - uv run uvicorn app.main:app --host localhost --port 4900 --reload
+    silent: false
+
+  install:
+    desc: "Instala las dependencias definidas en el proyecto"
+    cmds:
+      - uv sync
+
+  clean:
+    desc: "Elimina cachés de python y entornos virtuales"
+    cmds:
+      - rm -rf .venv
+      - find . -type d -name "__pycache__" -exec rm -rf {} +
