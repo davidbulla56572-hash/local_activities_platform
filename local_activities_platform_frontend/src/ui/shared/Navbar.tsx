@@ -1,16 +1,17 @@
+import { NavLink } from 'react-router-dom'
 import { useAppController } from '../../application/hooks/useAppController'
 
 export function Navbar() {
-  const { route, navigateTo } = useAppController()
+  const { route } = useAppController()
 
   const links = [
-    { label: 'Inicio', path: '/', active: route.name === 'home' },
+    { label: 'Inicio', path: '/' },
     {
       label: 'Detalle',
       path: route.name === 'activity' ? `/activities/${route.activityId}` : '/detail',
-      active: route.name === 'activity' || route.name === 'detail',
+      keepActiveOnActivity: true,
     },
-    { label: 'Registro', path: '/register', active: route.name === 'register' },
+    { label: 'Registro', path: '/register' },
   ]
 
   return (
@@ -28,18 +29,21 @@ export function Navbar() {
 
         <nav className="flex flex-wrap gap-3">
           {links.map((link) => (
-            <button
+            <NavLink
               key={link.label}
-              type="button"
-              className={`rounded-full border px-4 py-2 text-sm font-semibold transition duration-150 hover:-translate-y-0.5 ${
-                link.active
-                  ? 'border-sky-300 bg-sky-300 text-slate-950'
-                  : 'border-slate-700 bg-slate-800 text-white hover:border-slate-500 hover:bg-slate-700'
-              }`}
-              onClick={() => navigateTo(link.path)}
+              to={link.path}
+              end={link.path === '/'}
+              className={({ isActive }) => {
+                const active = isActive || (link.keepActiveOnActivity && route.name === 'activity')
+                return `rounded-full border px-4 py-2 text-sm font-semibold transition duration-150 hover:-translate-y-0.5 ${
+                  active
+                    ? 'border-sky-300 bg-sky-300 text-slate-950'
+                    : 'border-slate-700 bg-slate-800 text-white hover:border-slate-500 hover:bg-slate-700'
+                }`
+              }}
             >
               {link.label}
-            </button>
+            </NavLink>
           ))}
         </nav>
       </div>

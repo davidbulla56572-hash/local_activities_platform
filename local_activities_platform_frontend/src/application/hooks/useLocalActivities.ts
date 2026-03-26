@@ -19,30 +19,10 @@ import {
 import { createRatingRequest } from '../../infrastructure/services/ratingService'
 import { createUserRequest, fetchUsers } from '../../infrastructure/services/userService'
 
-function parseRoute(pathname: string): AppRoute {
-  if (pathname === '/register') {
-    return { name: 'register' }
-  }
-
-  if (pathname === '/detail') {
-    return { name: 'detail' }
-  }
-
-  const activityMatch = pathname.match(/^\/activities\/([^/]+)$/)
-  if (activityMatch) {
-    return { name: 'activity', activityId: activityMatch[1] }
-  }
-
-  return { name: 'home' }
-}
-
-function navigate(pathname: string) {
-  window.history.pushState({}, '', pathname)
-  window.dispatchEvent(new PopStateEvent('popstate'))
-}
-
-export function useLocalActivities() {
-  const [route, setRoute] = useState<AppRoute>(() => parseRoute(window.location.pathname))
+export function useLocalActivities(
+  route: AppRoute,
+  navigateTo: (pathname: string) => void,
+) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [topRated, setTopRated] = useState<Activity[]>([])
@@ -54,11 +34,26 @@ export function useLocalActivities() {
     message: 'Plataforma lista para consultar actividades locales.',
   })
 
-  useEffect(() => {
-    const handleRouteChange = () => setRoute(parseRoute(window.location.pathname))
-    window.addEventListener('popstate', handleRouteChange)
-    return () => window.removeEventListener('popstate', handleRouteChange)
-  }, [])
+  function setErrorStatus(error: unknown) {
+    setStatus({
+      tone: 'error',
+      message: getErrorMessage(error),
+    })
+  }
+
+  async function runAction(
+    loadingMessage: string,
+    successMessage: string,
+    action: () => Promise<void>,
+  ) {
+    setStatus({ tone: 'loading', message: loadingMessage })
+    try {
+      await action()
+      setStatus({ tone: 'success', message: successMessage })
+    } catch (error) {
+      setErrorStatus(error)
+    }
+  }
 
   useEffect(() => {
     void loadActivities(categoryFilter)
@@ -84,10 +79,7 @@ export function useLocalActivities() {
       const data = await fetchActivities(category)
       setActivities(data)
     } catch (error) {
-      setStatus({
-        tone: 'error',
-        message: getErrorMessage(error),
-      })
+      setErrorStatus(error)
     }
   }
 
@@ -105,10 +97,7 @@ export function useLocalActivities() {
     try {
       await Promise.all([loadUsers(), loadTopRated()])
     } catch (error) {
-      setStatus({
-        tone: 'error',
-        message: getErrorMessage(error),
-      })
+      setErrorStatus(error)
     }
   }
 
@@ -118,10 +107,7 @@ export function useLocalActivities() {
       setSelectedActivity(data)
     } catch (error) {
       setSelectedActivity(null)
-      setStatus({
-        tone: 'error',
-        message: getErrorMessage(error),
-      })
+      setErrorStatus(error)
     }
   }
 
@@ -133,15 +119,15 @@ export function useLocalActivities() {
   }
 
   async function createActivity(payload: ActivityPayload) {
-    setStatus({ tone: 'loading', message: 'Guardando actividad...' })
-    try {
+    await runAction(
+      'Guardando actividad...',
+      'Actividad creada correctamente.',
+      async () => {
       const createdActivity = await createActivityRequest(payload)
       await refreshAll(createdActivity.id)
-      navigate(`/activities/${createdActivity.id}`)
-      setStatus({ tone: 'success', message: 'Actividad creada correctamente.' })
-    } catch (error) {
-      setStatus({ tone: 'error', message: getErrorMessage(error) })
-    }
+      navigateTo(`/activities/${createdActivity.id}`)
+      },
+    )
   }
 
   async function updateActivity(payload: ActivityPayload) {
@@ -149,16 +135,16 @@ export function useLocalActivities() {
       return
     }
 
-    setStatus({ tone: 'loading', message: 'Actualizando actividad...' })
-    try {
+    await runAction(
+      'Actualizando actividad...',
+      'Actividad actualizada correctamente.',
+      async () => {
       const updatedActivity = await updateActivityRequest(editingActivity.id, payload)
       setEditingActivity(null)
       await refreshAll(updatedActivity.id)
-      navigate(`/activities/${updatedActivity.id}`)
-      setStatus({ tone: 'success', message: 'Actividad actualizada correctamente.' })
-    } catch (error) {
-      setStatus({ tone: 'error', message: getErrorMessage(error) })
-    }
+      navigateTo(`/activities/${updatedActivity.id}`)
+      },
+    )
   }
 
   async function deleteActivity(activityId: string) {
@@ -166,41 +152,41 @@ export function useLocalActivities() {
       return
     }
 
-    setStatus({ tone: 'loading', message: 'Eliminando actividad...' })
-    try {
+    await runAction(
+      'Eliminando actividad...',
+      'Actividad eliminada correctamente.',
+      async () => {
       await deleteActivityRequest(activityId)
       setSelectedActivity(null)
       setEditingActivity(null)
       await refreshAll()
-      navigate('/')
-      setStatus({ tone: 'success', message: 'Actividad eliminada correctamente.' })
-    } catch (error) {
-      setStatus({ tone: 'error', message: getErrorMessage(error) })
-    }
+      navigateTo('/')
+      },
+    )
   }
 
   async function registerUser(payload: UserPayload) {
-    setStatus({ tone: 'loading', message: 'Registrando usuario...' })
-    try {
+    await runAction(
+      'Registrando usuario...',
+      'Usuario registrado correctamente.',
+      async () => {
       await createUserRequest(payload)
       await loadUsers()
-      setStatus({ tone: 'success', message: 'Usuario registrado correctamente.' })
-      navigate('/register')
-    } catch (error) {
-      setStatus({ tone: 'error', message: getErrorMessage(error) })
-    }
+      navigateTo('/register')
+      },
+    )
   }
 
   async function createRating(payload: RatingPayload) {
-    setStatus({ tone: 'loading', message: 'Guardando rating...' })
-    try {
+    await runAction(
+      'Guardando rating...',
+      'Rating registrado correctamente.',
+      async () => {
       await createRatingRequest(payload)
       await refreshAll(payload.activityId)
-      navigate(`/activities/${payload.activityId}`)
-      setStatus({ tone: 'success', message: 'Rating registrado correctamente.' })
-    } catch (error) {
-      setStatus({ tone: 'error', message: getErrorMessage(error) })
-    }
+      navigateTo(`/activities/${payload.activityId}`)
+      },
+    )
   }
 
   return {
@@ -219,7 +205,7 @@ export function useLocalActivities() {
     deleteActivity,
     registerUser,
     createRating,
-    navigateTo: navigate,
+    navigateTo,
     cancelEdition: () => setEditingActivity(null),
   }
 }
